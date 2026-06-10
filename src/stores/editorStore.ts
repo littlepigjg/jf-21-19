@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Frame, Caption, CropConfig, ExportConfig } from '@/types';
+import type { Frame, Caption, CropConfig, ExportConfig, AudioData } from '@/types';
 import { generateId, cloneImageData, createBlankImageData } from '@/utils/imageUtils';
+import { mapBeatsToFrames } from '@/utils/audioAnalyzer';
 
 interface EditorStore {
   frames: Frame[];
@@ -15,6 +16,13 @@ interface EditorStore {
   canvasHeight: number;
   showImportDialog: boolean;
   showExportDialog: boolean;
+
+  audio: AudioData | null;
+  isAudioPlaying: boolean;
+  audioCurrentTime: number;
+  audioVolume: number;
+  beatSensitivity: number;
+  syncWithAudio: boolean;
 
   setFrames: (frames: Frame[]) => void;
   setSelectedFrameIndex: (index: number) => void;
@@ -37,6 +45,15 @@ interface EditorStore {
 
   setCrop: (crop: Partial<CropConfig>) => void;
   setExportConfig: (config: Partial<ExportConfig>) => void;
+
+  setAudio: (audio: AudioData | null) => void;
+  setIsAudioPlaying: (playing: boolean) => void;
+  setAudioCurrentTime: (time: number) => void;
+  setAudioVolume: (volume: number) => void;
+  setBeatSensitivity: (sensitivity: number) => void;
+  setSyncWithAudio: (sync: boolean) => void;
+  remapBeatsToFrames: () => void;
+  addKeyframesAtBeats: (intensityThreshold?: number) => number[];
 
   clearAll: () => void;
 }
@@ -72,6 +89,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   canvasHeight: 480,
   showImportDialog: false,
   showExportDialog: false,
+
+  audio: null,
+  isAudioPlaying: false,
+  audioCurrentTime: 0,
+  audioVolume: 1,
+  beatSensitivity: 0.7,
+  syncWithAudio: true,
 
   setFrames: (frames) => {
     if (frames.length > 0) {
@@ -219,7 +243,64 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setCrop: (crop) => set({ crop: { ...get().crop, ...crop } }),
   setExportConfig: (config) => set({ exportConfig: { ...get().exportConfig, ...config } }),
 
-  clearAll: () =>
+  setAudio: (audio) => {
+    const state = get();
+    if (audio && state.frames.length > 0) {
+      const fps = state.exportConfig.fps || 15;
+      const mappedBeats = mapBeatsToFrames(audio.beatMarkers, audio.duration, state.frames.length, fps);
+      set({
+        audio: { ...audio, beatMarkers: mappedBeats },
+        audioCurrentTime: 0,
+        isAudioPlaying: false,
+      });
+    } else {
+      set({ audio, audioCurrentTime: 0, isAudioPlaying: false });
+    }
+  },
+  setIsAudioPlaying: (playing) => set({ isAudioPlaying: playing }),
+  setAudioCurrentTime: (time) => set({ audioCurrentTime: time }),
+  setAudioVolume: (volume) => set({ audioVolume: Math.max(0, Math.min(1, volume)) }),
+  setBeatSensitivity: (sensitivity) => set({ beatSensitivity: Math.max(0, Math.min(1, sensitivity)) }),
+  setSyncWithAudio: (sync) => set({ syncWithAudio: sync }),
+  remapBeatsToFrames: () => {
+    const state = get();
+    if (!state.audio || state.frames.length === 0) return;
+    const fps = state.exportConfig.fps || 15;
+    const mappedBeats = mapBeatsToFrames(state.audio.beatMarkers, state.audio.duration, state.frames.length, fps);
+    set({ audio: { ...state.audio, beatMarkers: mappedBeats } });
+  },
+  addKeyframesAtBeats: (intensityThreshold = 0.5) => {
+    const state = get();
+    if (!state.audio || state.frames.length === 0) return [];
+    const affectedFrames: number[] = [];
+    const newFrames = [...state.frames];
+    const beatFrames = new Set<number>();
+
+    for (const beat of state.audio.beatMarkers) {
+      if (beat.intensity >= intensityThreshold) {
+        beatFrames.add(beat.frameIndex);
+      }
+    }
+
+    beatFrames.forEach((frameIdx) => {
+      if (frameIdx >= 0 && frameIdx < newFrames.length) {
+        const frame = newFrames[frameIdx];
+        newFrames[frameIdx] = { ...frame, delay: Math.max(10, Math.floor(frame.delay * 0.6)) };
+        affectedFrames.push(frameIdx);
+      }
+    });
+
+    if (affectedFrames.length > 0) {
+      set({ frames: newFrames });
+    }
+    return affectedFrames;
+  },
+
+  clearAll: () => {
+    const state = get();
+    if (state.audio?.url) {
+      URL.revokeObjectURL(state.audio.url);
+    }
     set({
       frames: [],
       selectedFrameIndex: -1,
@@ -229,5 +310,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       currentFrameIndex: 0,
       showImportDialog: false,
       showExportDialog: false,
-    }),
+      audio: null,
+      isAudioPlaying: false,
+      audioCurrentTime: 0,
+    });
+  },
 }));

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -9,16 +9,14 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Copy, Trash2, Plus, Clock, GripVertical } from 'lucide-react';
+import { Copy, Trash2, Plus, Clock, GripVertical, Zap } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
-import { imageDataToDataURL } from '@/utils/imageUtils';
 import { cn } from '@/lib/utils';
 
 interface SortableFrameItemProps {
@@ -35,7 +33,13 @@ function SortableFrameItem({ id, index }: SortableFrameItemProps) {
     duplicateFrame,
     deleteFrame,
     setFrameDelay,
+    audio,
   } = useEditorStore();
+
+  const beatAtFrame = useMemo(() => {
+    if (!audio) return null;
+    return audio.beatMarkers.find((b) => b.frameIndex === index) || null;
+  }, [audio, index]);
 
   const frame = frames[index];
   const isSelected = index === selectedFrameIndex;
@@ -104,6 +108,15 @@ function SortableFrameItem({ id, index }: SortableFrameItemProps) {
         <div className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center shadow-md">
           {index + 1}
         </div>
+        {beatAtFrame && (
+          <div
+            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md animate-pulse"
+            style={{ opacity: 0.5 + beatAtFrame.intensity * 0.5 }}
+            title={`节奏点 强度: ${(beatAtFrame.intensity * 100).toFixed(0)}%`}
+          >
+            <Zap className="w-2.5 h-2.5" />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-w-0">

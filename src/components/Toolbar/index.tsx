@@ -24,23 +24,44 @@ export default function Toolbar() {
     playbackSpeed,
     setPlaybackSpeed,
     clearAll,
+    audio,
+    setIsAudioPlaying,
+    syncWithAudio,
   } = useEditorStore();
+
+  const audioRef = (window as unknown as { __audioRef?: HTMLAudioElement }).__audioRef;
 
   const handlePrevFrame = () => {
     const newIndex = currentFrameIndex > 0 ? currentFrameIndex - 1 : frames.length - 1;
     setCurrentFrameIndex(newIndex);
     useEditorStore.getState().setSelectedFrameIndex(newIndex);
+    if (audio && syncWithAudio && audioRef) {
+      audioRef.currentTime = (newIndex / frames.length) * audio.duration;
+    }
   };
 
   const handleNextFrame = () => {
     const newIndex = currentFrameIndex < frames.length - 1 ? currentFrameIndex + 1 : 0;
     setCurrentFrameIndex(newIndex);
     useEditorStore.getState().setSelectedFrameIndex(newIndex);
+    if (audio && syncWithAudio && audioRef) {
+      audioRef.currentTime = (newIndex / frames.length) * audio.duration;
+    }
   };
 
   const togglePlay = () => {
     if (frames.length === 0) return;
-    setIsPlaying(!isPlaying);
+    const newPlaying = !isPlaying;
+    setIsPlaying(newPlaying);
+    if (audio && syncWithAudio && audioRef) {
+      if (newPlaying) {
+        audioRef.play().catch(() => {});
+        setIsAudioPlaying(true);
+      } else {
+        audioRef.pause();
+        setIsAudioPlaying(false);
+      }
+    }
   };
 
   return (

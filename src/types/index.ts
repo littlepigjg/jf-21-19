@@ -39,6 +39,34 @@ export interface ExportConfig {
   height: number;
 }
 
+export interface BeatMarker {
+  id: string;
+  time: number;
+  intensity: number;
+  frameIndex: number;
+}
+
+export interface AudioData {
+  id: string;
+  name: string;
+  url: string;
+  duration: number;
+  sampleRate: number;
+  waveformData: number[];
+  frequencyData: number[][];
+  beatMarkers: BeatMarker[];
+  bpm: number;
+}
+
+export interface AudioState {
+  audio: AudioData | null;
+  isAudioPlaying: boolean;
+  audioCurrentTime: number;
+  audioVolume: number;
+  beatSensitivity: number;
+  syncWithAudio: boolean;
+}
+
 export interface EditorState {
   frames: Frame[];
   selectedFrameIndex: number;

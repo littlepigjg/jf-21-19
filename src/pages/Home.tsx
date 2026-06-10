@@ -4,6 +4,7 @@ import PreviewCanvas from '@/components/PreviewCanvas';
 import PropertyPanel from '@/components/PropertyPanel';
 import ImportDialog from '@/components/ImportDialog';
 import ExportDialog from '@/components/ExportDialog';
+import AudioPanel from '@/components/AudioPanel';
 import { useEditorStore } from '@/stores/editorStore';
 
 export default function Home() {
@@ -14,7 +15,10 @@ export default function Home() {
       <Toolbar />
       <div className="flex-1 flex min-h-0">
         <FramePanel />
-        <PreviewCanvas />
+        <div className="flex-1 flex flex-col min-w-0">
+          <PreviewCanvas />
+          <AudioPanel />
+        </div>
         <PropertyPanel />
       </div>
       <ImportDialog open={showImportDialog} onClose={() => setShowImportDialog(false)} />
